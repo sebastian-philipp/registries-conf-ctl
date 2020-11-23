@@ -1,3 +1,5 @@
+import subprocess
+
 import toml
 
 from registries_conf_ctl import cli
@@ -70,3 +72,15 @@ expected = {
 def test_add_mirror():
     assert cli.registries_add_mirror_to_registry(toml.loads(v1), 'docker.io', 'vossi04.front.sepia.ceph.com:5000', True) == expected
     assert cli.registries_add_mirror_to_registry(toml.loads(v2), 'docker.io', 'vossi04.front.sepia.ceph.com:5000', True) == expected
+
+
+def test_add_mirror_cli(tmpdir):
+    p = tmpdir.join("conf.conf")
+    p.write(v2)
+
+    subprocess.check_call(f'registries-conf-ctl --conf {p} add-mirror docker.io vossi04 --insecure', shell=True)
+
+    with open('/tmp/foo.conf', 'w') as f:
+        f.write(p.read())
+
+    assert 'vossi04' in p.read()
