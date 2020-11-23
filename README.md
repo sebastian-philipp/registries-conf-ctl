@@ -1,4 +1,4 @@
-#registries-conf-ctl
+# registries-conf-ctl
 
 A CLI tool to modify /etc/registries/registries.conf.
 
