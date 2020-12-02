@@ -14,4 +14,19 @@ Options:
   --version      Show version.
   --conf=<conf>  registries.conf [default: /etc/containers/registries.conf,/etc/docker/daemon.json].
   --insecure     Mark registry as insecure
-  --http         HTTP registry mirror (Docker only)```
+  --http         HTTP registry mirror (Docker only)
+```
+
+# Q & A
+
+### If `docker` and `podman` commands are both detected, will the tool modify both config files?
+
+yes.
+
+### What if neither are detected?
+
+It will fail.
+
+### Will it create the files?
+
+no.
