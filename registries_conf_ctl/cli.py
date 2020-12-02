@@ -14,42 +14,49 @@ Options:
 
 """
 
-from typing import Dict, Any, cast
+from typing import Dict, Any, cast, TextIO
 
 import toml
 import docopt
 
 
-def v1_to_v2(config: Dict[str, Any]) -> Dict[str, Any]:
-    if 'registries' not in config:
+
+class RegistriesConfV2:
+    def __init__(self, f: TextIO):
+        self.config = cast(Dict, toml.load(f))
+        if 'registries' not in self.config and 'registry' not in self.config:
+            raise ValueError('unknown file. maybe empty?')
+
+    def v1_to_v2(self) -> Dict[str, Any]:
+        if 'registries' not in self.config:
+            return self.config
+
+        search = self.config.get('registries', {}).get('search', {}).get('registries', [])
+        insecure = self.config.get('registries', {}).get('search', {}).get('insecure', [])
+        return {
+            'unqualified-search-registries': search,
+            'registry': [
+                {
+                    'prefix': reg,
+                    'location': reg,
+                    'insecure': reg in insecure,
+                    'blocked': False,
+                } for reg in search
+            ]
+        }
+
+    def add_mirror(self, reg: str, mirror: str, insecure: bool) -> Dict[str, Any]:
+        config = self.v1_to_v2()
+
+        my_regs = [r for r in config['registry'] if r['prefix'] == reg]
+        if my_regs:
+            my_reg = my_regs[0]
+            my_reg['mirror'] = [{
+                "location": mirror,
+                "insecure": insecure,
+            }]
         return config
 
-    search = config.get('registries', {}).get('search', {}).get('registries', [])
-    insecure = config.get('registries', {}).get('search', {}).get('insecure', [])
-    return {
-        'unqualified-search-registries': search,
-        'registry': [
-            {
-                'prefix': reg,
-                'location': reg,
-                'insecure': reg in insecure,
-                'blocked': False,
-            } for reg in search
-        ]
-    }
-
-
-def registries_add_mirror_to_registry(conf: Dict[str, Any], reg: str, mirror: str, insecure: bool) -> Dict[str, Any]:
-    config = v1_to_v2(conf)
-
-    my_regs = [r for r in config['registry'] if r['prefix'] == reg]
-    if my_regs:
-        my_reg = my_regs[0]
-        my_reg['mirror'] = [{
-            "location": mirror,
-            "insecure": insecure,
-        }]
-    return config
 
 
 def main() -> None:
@@ -57,11 +64,9 @@ def main() -> None:
 
     registries_conf = arguments['--conf']
 
-    with open(registries_conf) as f:
-        config = cast(Dict, toml.load(f))
-
     if arguments['add-mirror']:
-        out = registries_add_mirror_to_registry(config, arguments['<registry>'], arguments['<mirror>'], arguments['--insecure'])
+        with open(registries_conf) as f:
+            out = RegistriesConfV2(f).add_mirror(arguments['<registry>'], arguments['<mirror>'], arguments['--insecure'])
 
         with open(registries_conf, 'w') as f:
             f.write(toml.dumps(out))
