@@ -1,6 +1,8 @@
 import subprocess
 from io import StringIO
 
+import pytest
+
 from registries_conf_ctl import cli
 
 v1 = """
@@ -43,7 +45,7 @@ insecure = false
 blocked = false
 """
 
-expected = {
+reg_expected = {
     'unqualified-search-registries': ['registry.access.redhat.com', 'registry.redhat.io',
                                       'docker.io', 'quay.io'],
     'registry': [
@@ -68,18 +70,34 @@ expected = {
     ]
 }
 
-def test_add_mirror():
-    assert cli.RegistriesConfV2(StringIO(v1)).add_mirror('docker.io', 'vossi04.front.sepia.ceph.com:5000', True) == expected
-    assert cli.RegistriesConfV2(StringIO(v1)).add_mirror('docker.io', 'vossi04.front.sepia.ceph.com:5000', True) == expected
+
+docker_in = """
+{
+    "something": 1
+}
+"""
 
 
-def test_add_mirror_cli(tmpdir):
+docker_out = {
+    "something": 1,
+    "insecure-registries": ["vossi04.front.sepia.ceph.com:5000"],
+    "registry-mirrors": ["http://vossi04.front.sepia.ceph.com:5000"]
+}
+
+
+@pytest.mark.parametrize("test_input,expected,cls", [
+    (v1, reg_expected, cli.RegistriesConfV2),
+    (v1, reg_expected, cli.RegistriesConfV2),
+    (docker_in, docker_out, cli.DockerDaemonJson),
+])
+def test_add_mirror(test_input, expected, cls, tmpdir):
+    fmt = cls(StringIO(test_input))
+    fmt.add_mirror('docker.io', 'vossi04.front.sepia.ceph.com:5000', True, True)
+    assert fmt.config == expected
+
     p = tmpdir.join("conf.conf")
-    p.write(v2)
+    p.write(test_input)
 
-    subprocess.check_call(f'registries-conf-ctl --conf {p} add-mirror docker.io vossi04 --insecure', shell=True)
+    subprocess.check_call(f'registries-conf-ctl --conf {p} add-mirror docker.io vossi04.front.sepia.ceph.com:5000 --insecure --http', shell=True)
 
-    with open('/tmp/foo.conf', 'w') as f:
-        f.write(p.read())
-
-    assert 'vossi04' in p.read()
+    assert cls(p).config == expected
