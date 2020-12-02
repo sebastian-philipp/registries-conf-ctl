@@ -1,5 +1,6 @@
 """
-registries-conf-ctl. A CLI tool to modify /etc/registries/registries.conf.
+registries-conf-ctl. A CLI tool to modify
+/etc/registries/registries.conf. Also supports Docker's daemon.json
 
 Usage:
   registries-conf-ctl [options] add-mirror <registry> <mirror> [--insecure] [--http]
@@ -9,10 +10,9 @@ Usage:
 Options:
   -h --help      Show this screen.
   --version      Show version.
-  --conf=<conf>  registries.conf [default: /etc/containers/registries.conf].
+  --conf=<conf>  registries.conf [default: /etc/containers/registries.conf,/etc/docker/daemon.json].
   --insecure     Mark registry as insecure
   --http         HTTP registry mirror (Docker only)
-
 """
 import json
 from typing import Dict, Any, cast, TextIO, Optional
@@ -91,16 +91,11 @@ class DockerDaemonJson(Fmt):
     def dump(self) -> str:
         return json.dumps(self.config)
 
-
-def main() -> None:
-    arguments = docopt.docopt(__doc__, version='1.0')
-
-    registries_conf = arguments['--conf']
-
+def execute_for_file(fname: str, arguments: dict) -> None:
     if arguments['add-mirror']:
         fmt: Optional[Fmt] = None
         e = None
-        with open(registries_conf) as f:
+        with open(fname) as f:
             for cls in [DockerDaemonJson, RegistriesConfV2]:
                 f.seek(0)
                 try:
@@ -109,11 +104,17 @@ def main() -> None:
                 except Exception as ex:
                     e = ex
         if fmt is None:
-            raise ValueError(f"Failed to read {registries_conf}: {e}")
+            raise ValueError(f"Failed to read {fname}: {e}")
 
         fmt.add_mirror(arguments['<registry>'], arguments['<mirror>'],
                        arguments['--insecure'], arguments['--http'])
 
-        with open(registries_conf, 'w') as f:
+        with open(fname, 'w') as f:
             f.write(fmt.dump())
 
+
+def main() -> None:
+    arguments = docopt.docopt(__doc__, version='1.0')
+
+    for fname in arguments['--conf'].split(','):
+        execute_for_file(fname, arguments)
