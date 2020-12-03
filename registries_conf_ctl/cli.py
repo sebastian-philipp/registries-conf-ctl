@@ -15,10 +15,14 @@ Options:
   --http         HTTP registry mirror (Docker only)
 """
 import json
-from typing import Dict, Any, cast, TextIO, Optional
+from typing import Dict, Any, cast, TextIO, TypeVar, Iterable, Callable, Optional
+
+T = TypeVar('T')
+U = TypeVar('U')
 
 import toml
 import docopt
+
 
 class Fmt:
     def add_mirror(self, reg, mirror, insecure, http):
@@ -34,6 +38,9 @@ class RegistriesConfV2(Fmt):
     def __init__(self, f):
         # type: (TextIO) -> None
         self.config = cast(Dict, toml.load(f))
+        if not self.config:
+            raise ValueError('empty file')
+
         if 'registries' not in self.config and 'registry' not in self.config:
             raise ValueError('unknown file. maybe empty?')
 
@@ -102,21 +109,29 @@ class DockerDaemonJson(Fmt):
         return json.dumps(self.config)
 
 
+def _raise_if_all_fail(l, f, what):
+    # type: (Iterable[T], Callable[[T], U], str) -> U
+    e = None  # type: Optional[Exception]
+    for el in l:
+        try:
+            return f(el)
+        except Exception as ex:
+            print('Ex: ' + str(ex))
+            e = ex
+    raise ValueError('{what}: {e}'.format(what=what,e=e))
+
+
 def execute_for_file(fname, arguments):
     # type: (str, dict) -> None
     if arguments['add-mirror']:
-        fmt = None  # type: Optional[Fmt]
-        e = None
         with open(fname) as f:
-            for cls in [DockerDaemonJson, RegistriesConfV2]:
+            def fun(cls):
+                # type: (Any) -> Any
                 f.seek(0)
-                try:
-                    fmt = cls(f)
-                    break
-                except Exception as ex:
-                    e = ex
-        if fmt is None:
-            raise ValueError("Failed to read {fname}: {e}".format(fname=fname, e=e))
+                return cls(f)
+            fmt = _raise_if_all_fail([DockerDaemonJson, RegistriesConfV2],
+                                     fun,
+                                     "Failed to read {fname}".format(fname=fname))
 
         fmt.add_mirror(arguments['<registry>'], arguments['<mirror>'],
                        arguments['--insecure'], arguments['--http'])
@@ -129,5 +144,7 @@ def main():
     # type: () -> None
     arguments = docopt.docopt(__doc__, version='1.0')
 
-    for fname in arguments['--conf'].split(','):
-        execute_for_file(fname, arguments)
+    _raise_if_all_fail(arguments['--conf'].split(','),
+                       lambda fname: execute_for_file(fname, arguments),
+                       'Failed to read any file')
+
