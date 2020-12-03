@@ -1,7 +1,24 @@
 from setuptools import setup, find_packages
 
+import sys
+
+py3 = sys.version_info >= (3,0)
+
 with open("README.md", "r") as fh:
     long_description = fh.read()
+
+if py3:
+    install_requires = [
+        'toml',
+        'docopt',
+    ]
+else:
+    install_requires = [
+        'toml',
+        'docopt',
+        'typing',
+    ]
+
 
 
 setup(
@@ -17,11 +34,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
 
-    install_requires=[
-        'toml',
-        'docopt',
-        'typing;python_version<"3.5"',
-    ],
+    install_requires=install_requires,
 
     entry_points = {
         'console_scripts': ['registries-conf-ctl=registries_conf_ctl.cli:main'],
