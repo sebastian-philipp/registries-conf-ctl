@@ -21,20 +21,24 @@ import toml
 import docopt
 
 class Fmt:
-    def add_mirror(self, reg: str, mirror: str, insecure: bool, http: bool) -> None:
+    def add_mirror(self, reg, mirror, insecure, http):
+        # type: (str, str, bool, bool) -> None
         raise NotImplementedError
 
-    def dump(self) -> str:
+    def dump(self):
+        # type: () -> str
         raise NotImplementedError
 
 
 class RegistriesConfV2(Fmt):
-    def __init__(self, f: TextIO):
+    def __init__(self, f):
+        # type: (TextIO) -> None
         self.config = cast(Dict, toml.load(f))
         if 'registries' not in self.config and 'registry' not in self.config:
             raise ValueError('unknown file. maybe empty?')
 
-    def v1_to_v2(self) -> Dict[str, Any]:
+    def v1_to_v2(self):
+        # type: () -> Dict[str, Any]
         if 'registries' not in self.config:
             return self.config
 
@@ -52,7 +56,8 @@ class RegistriesConfV2(Fmt):
             ]
         }
 
-    def add_mirror(self, reg: str, mirror: str, insecure: bool, http: bool) -> None:
+    def add_mirror(self, reg, mirror, insecure, http):
+        # type: (str, str, bool, bool) -> None
         config = self.v1_to_v2()
 
         my_regs = [r for r in config['registry'] if r['prefix'] == reg]
@@ -64,11 +69,13 @@ class RegistriesConfV2(Fmt):
             }]
         self.config = config
 
-    def dump(self) -> str:
+    def dump(self):
+        # type: () -> str
         return toml.dumps(self.config)
 
 
-def _extend(d: dict, key: str, what: str) -> None:
+def _extend(d, key, what):
+    # type: (dict, str, str) -> None
     if key not in d:
         d[key] = [what]
     else:
@@ -76,24 +83,29 @@ def _extend(d: dict, key: str, what: str) -> None:
 
 
 class DockerDaemonJson(Fmt):
-    def __init__(self, f: TextIO):
-        self.config: Dict[str, Any] = json.load(f)
+    def __init__(self, f):
+        # type: (TextIO) -> None
+        self.config = json.load(f)  # tpe: Dict[str, Any]
 
-    def add_mirror(self, reg: str, mirror: str, insecure: bool, http: bool) -> None:
+    def add_mirror(self, reg, mirror, insecure, http):
+        # type: (str, str, bool, bool) -> None
         if reg != 'docker.io':
             raise ValueError("Only mirrors for 'docker.io' are supported")
 
         proto = 'http' if http else 'https'
-        _extend(self.config, 'registry-mirrors', f'{proto}://{mirror}')
+        _extend(self.config, 'registry-mirrors', '{proto}://{mirror}'.format(proto=proto, mirror=mirror))
         if insecure:
             _extend(self.config, 'insecure-registries', mirror)
 
-    def dump(self) -> str:
+    def dump(self):
+        # type: () -> str
         return json.dumps(self.config)
 
-def execute_for_file(fname: str, arguments: dict) -> None:
+
+def execute_for_file(fname, arguments):
+    # type: (str, dict) -> None
     if arguments['add-mirror']:
-        fmt: Optional[Fmt] = None
+        fmt = None  # type: Optional[Fmt]
         e = None
         with open(fname) as f:
             for cls in [DockerDaemonJson, RegistriesConfV2]:
@@ -104,7 +116,7 @@ def execute_for_file(fname: str, arguments: dict) -> None:
                 except Exception as ex:
                     e = ex
         if fmt is None:
-            raise ValueError(f"Failed to read {fname}: {e}")
+            raise ValueError("Failed to read {fname}: {e}".format(fname=fname, e=e))
 
         fmt.add_mirror(arguments['<registry>'], arguments['<mirror>'],
                        arguments['--insecure'], arguments['--http'])
@@ -113,7 +125,8 @@ def execute_for_file(fname: str, arguments: dict) -> None:
             f.write(fmt.dump())
 
 
-def main() -> None:
+def main():
+    # type: () -> None
     arguments = docopt.docopt(__doc__, version='1.0')
 
     for fname in arguments['--conf'].split(','):

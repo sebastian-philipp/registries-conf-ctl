@@ -3,3 +3,4 @@
 registries_conf_ctl.egg-info
 __pycache__
 venv
+*.pyc

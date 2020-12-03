@@ -5,7 +5,7 @@ import pytest
 
 from registries_conf_ctl import cli
 
-v1 = """
+v1 = u"""
 [registries.search]
 registries = ['registry.access.redhat.com', 'registry.redhat.io', 'docker.io', 'quay.io']
 
@@ -13,7 +13,7 @@ registries = ['registry.access.redhat.com', 'registry.redhat.io', 'docker.io', '
 registries = []
 """
 
-v2 = """
+v2 = u"""
 unqualified-search-registries = ["registry.access.redhat.com", "registry.redhat.io", "docker.io", 'quay.io']
 
 [[registry]]
@@ -71,7 +71,7 @@ reg_expected = {
 }
 
 
-docker_in = """
+docker_in = u"""
 {
     "something": 1
 }
@@ -98,6 +98,6 @@ def test_add_mirror(test_input, expected, cls, tmpdir):
     p = tmpdir.join("conf.conf")
     p.write(test_input)
 
-    subprocess.check_call(f'registries-conf-ctl --conf {p} add-mirror docker.io vossi04.front.sepia.ceph.com:5000 --insecure --http', shell=True)
+    subprocess.check_call('registries-conf-ctl --conf {p} add-mirror docker.io vossi04.front.sepia.ceph.com:5000 --insecure --http'.format(p=p), shell=True)
 
     assert cls(p).config == expected

@@ -20,6 +20,7 @@ setup(
     install_requires=[
         'toml',
         'docopt',
+        'typing;python_version<"3.5"',
     ],
 
     entry_points = {
