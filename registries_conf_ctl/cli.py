@@ -116,7 +116,6 @@ def _raise_if_all_fail(l, f, what):
         try:
             return f(el)
         except Exception as ex:
-            print('Ex: ' + str(ex))
             e = ex
     raise ValueError('{what}: {e}'.format(what=what,e=e))
 
