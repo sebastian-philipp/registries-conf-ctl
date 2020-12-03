@@ -86,7 +86,7 @@ def _extend(d, key, what):
     if key not in d:
         d[key] = [what]
     else:
-        d[key].add(what)
+        d[key] = list(set(d[key] + [what]))
 
 
 class DockerDaemonJson(Fmt):
