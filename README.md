@@ -17,6 +17,14 @@ Options:
   --http         HTTP registry mirror (Docker only)
 ```
 
+# Install
+
+Install directly from github like so:
+
+```
+pip install git+https://github.com/sebastian-philipp/registries-conf-ctl
+```
+
 # Q & A
 
 ### If `docker` and `podman` commands are both detected, will the tool modify both config files?
