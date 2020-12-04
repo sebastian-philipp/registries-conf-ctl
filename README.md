@@ -3,6 +3,8 @@
 registries-conf-ctl. A CLI tool to modify
 /etc/registries/registries.conf. Also supports Docker's daemon.json
 
+**NOTE**: At this point, this tool only allows adding mirror registries. 
+
 ```
 Usage:
   registries-conf-ctl [options] add-mirror <registry> <mirror> [--insecure] [--http]
@@ -23,6 +25,15 @@ Install directly from github like so:
 
 ```
 pip install git+https://github.com/sebastian-philipp/registries-conf-ctl
+```
+
+# Example
+
+Add a new mirror for docker.io:
+
+```bash
+registries-conf-ctl add-mirror docker.io <my-mirror>
+systemctl restart docker
 ```
 
 # Q & A
