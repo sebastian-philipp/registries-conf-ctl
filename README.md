@@ -8,6 +8,7 @@ registries-conf-ctl. A CLI tool to modify
 ```
 Usage:
   registries-conf-ctl [options] add-mirror <registry> <mirror> [--insecure] [--http]
+  registries-conf-ctl [options] list-mirrors <registry>
   registries-conf-ctl -h | --help
   registries-conf-ctl --version
 
