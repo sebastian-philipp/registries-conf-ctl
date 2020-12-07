@@ -4,6 +4,7 @@ registries-conf-ctl. A CLI tool to modify
 
 Usage:
   registries-conf-ctl [options] add-mirror <registry> <mirror> [--insecure] [--http]
+  registries-conf-ctl [options] list-mirrors <registry>
   registries-conf-ctl -h | --help
   registries-conf-ctl --version
 
@@ -28,6 +29,11 @@ class Fmt:
     def add_mirror(self, reg, mirror, insecure, http):
         # type: (str, str, bool, bool) -> None
         raise NotImplementedError
+
+    def list_mirrors(self, reg):
+        # type: (str) -> Iterable[str]
+        raise NotImplementedError
+
 
     def dump(self):
         # type: () -> str
@@ -76,6 +82,17 @@ class RegistriesConfV2(Fmt):
             }]
         self.config = config
 
+    def list_mirrors(self, reg):
+        # type: (str) -> Iterable[str]
+        config = self.v1_to_v2()
+
+        my_regs = [r for r in config['registry'] if r['prefix'] == reg]
+        if my_regs:
+            my_reg = my_regs[0]
+            if 'mirror' in my_reg and my_reg['mirror']:
+                for m in my_reg['mirror']:
+                    yield m['location']
+
     def dump(self):
         # type: () -> str
         return toml.dumps(self.config)
@@ -103,6 +120,13 @@ class DockerDaemonJson(Fmt):
         _extend(self.config, 'registry-mirrors', '{proto}://{mirror}'.format(proto=proto, mirror=mirror))
         if insecure:
             _extend(self.config, 'insecure-registries', mirror)
+
+    def list_mirrors(self, reg):
+        # type: (str) -> Iterable[str]
+
+        if reg == 'docker.io':
+            for m in self.config.get('registry-mirrors', []):
+                yield m.lstrip('http://').lstrip('https://')
 
     def dump(self):
         # type: () -> str
@@ -137,6 +161,17 @@ def execute_for_file(fname, arguments):
 
         with open(fname, 'w') as f:
             f.write(fmt.dump())
+    if arguments['list-mirrors']:
+        with open(fname) as f:
+            def fun(cls):
+                # type: (Any) -> Any
+                f.seek(0)
+                return cls(f)
+            fmt = _raise_if_all_fail([DockerDaemonJson, RegistriesConfV2],
+                                     fun,
+                                     "Failed to read {fname}".format(fname=fname))
+
+        print('\n'.join(fmt.list_mirrors(arguments['<registry>'])))
 
 
 def main():
