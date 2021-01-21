@@ -47,7 +47,9 @@ class RegistriesConfV2(Fmt):
         if not self.config:
             raise ValueError('empty file')
 
-        if 'registries' not in self.config and 'registry' not in self.config:
+        if 'registries' not in self.config and \
+                'registry' not in self.config and \
+                'unqualified-search-registries' not in self.config:
             raise ValueError('unknown file. maybe empty?')
 
     def v1_to_v2(self):
@@ -73,14 +75,24 @@ class RegistriesConfV2(Fmt):
         # type: (str, str, bool, bool) -> None
         config = self.v1_to_v2()
 
-        my_regs = [r for r in config['registry'] if r['prefix'] == reg]
+        my_regs = [r for r in config.get('registry', []) if r['prefix'] == reg]
+        if not my_regs and reg in config['unqualified-search-registries']:
+            if 'registry' not in config:
+                config['registry'] = []
+            config['registry'].append(
+                {
+                    'prefix': reg,
+                    'location': reg,
+                }
+            )
+            my_regs = [r for r in config['registry'] if r['prefix'] == reg]
         if my_regs:
             my_reg = my_regs[0]
             my_reg['mirror'] = [{
                 "location": mirror,
                 "insecure": insecure,
             }]
-        self.config = config
+            self.config = config
 
     def list_mirrors(self, reg):
         # type: (str) -> Iterable[str]

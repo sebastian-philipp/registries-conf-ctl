@@ -112,4 +112,32 @@ def test_add_mirror(test_input, expected, cls, tmpdir):
     assert subprocess.check_output('registries-conf-ctl --conf {p} list-mirrors docker.io'.format(p=p), shell=True) == b'vossi04.front.sepia.ceph.com:5000\n'
 
 
+def test_small_registries_conf():
+    s = u"""unqualified-search-registries = ["registry.fedoraproject.org", "registry.access.redhat.com", "registry.centos.org", "docker.io"]"""
+
+    fmt = cli.RegistriesConfV2(StringIO(s))
+
+    fmt.add_mirror('docker.io', 'vossi04.front.sepia.ceph.com:5000', True, True)
+
+    assert fmt.config == {
+        'unqualified-search-registries': [
+            'registry.fedoraproject.org',
+            'registry.access.redhat.com',
+            'registry.centos.org',
+            'docker.io'
+        ],
+        'registry': [
+            {
+                'location': 'docker.io',
+                'prefix': 'docker.io',
+                'mirror': [
+                    {
+                        'insecure': True,
+                        'location': 'vossi04.front.sepia.ceph.com:5000'
+                    }
+                ],
+            }
+        ]
+    }
+
 
