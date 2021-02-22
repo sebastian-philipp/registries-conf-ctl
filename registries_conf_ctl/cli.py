@@ -16,6 +16,10 @@ Options:
   --insecure     Mark registry as insecure
   --http         HTTP registry mirror (Docker only)
 """
+from __future__ import print_function
+
+import sys
+
 import json
 from typing import Dict, Any, cast, TextIO, TypeVar, Iterable, Callable, List, Type
 
@@ -24,6 +28,10 @@ U = TypeVar('U')
 
 import toml
 import docopt
+
+
+class CLIError(Exception):
+    pass
 
 
 class Fmt:
@@ -46,12 +54,12 @@ class RegistriesConfV2(Fmt):
         # type: (TextIO) -> None
         self.config = cast(Dict, toml.load(f))
         if not self.config:
-            raise ValueError('empty file')
+            raise CLIError('Failed to load {f}: empty file'.format(f=f.name))
 
         if 'registries' not in self.config and \
                 'registry' not in self.config and \
                 'unqualified-search-registries' not in self.config:
-            raise ValueError('unknown file. maybe empty?')
+            raise CLIError('Failed to load {f}: unknown file'.format(f=f.name))
 
     def v1_to_v2(self):
         # type: () -> Dict[str, Any]
@@ -127,7 +135,7 @@ class DockerDaemonJson(Fmt):
     def add_mirror(self, reg, mirror, insecure, http):
         # type: (str, str, bool, bool) -> None
         if reg != 'docker.io':
-            raise ValueError("Only mirrors for 'docker.io' are supported")
+            raise CLIError("Only mirrors for 'docker.io' are supported")
 
         proto = 'http' if http else 'https'
         _extend(self.config, 'registry-mirrors', '{proto}://{mirror}'.format(proto=proto, mirror=mirror))
@@ -155,7 +163,7 @@ def _raise_if_all_fail(l, f, what):
         except Exception as ex:
             es.append(ex)
     details = '\n'.join('* {e}'.format(e=e) for e in es)
-    raise ValueError('{what}:\n{details}'.format(what=what,details=details))
+    raise CLIError('{what}:\n{details}'.format(what=what,details=details))
 
 
 def execute_for_file(fname, arguments):
@@ -201,7 +209,12 @@ def run_all(arguments):
 
 
 def main():
-    # type: () -> None
+    # type: () -> int
     arguments = docopt.docopt(__doc__, version='1.0')
-    run_all(arguments)
+    try:
+        run_all(arguments)
+        return 0
+    except CLIError as e:
+        print(str(e), file=sys.stderr)
+        return 1
 
