@@ -12,11 +12,12 @@ Options:
   -h --help      Show this screen.
   --version      Show version.
   --conf=<conf>  registries.conf [default: /etc/containers/registries.conf,/etc/docker/daemon.json].
+  --docker       Treat `--conf` as a docker config file
   --insecure     Mark registry as insecure
   --http         HTTP registry mirror (Docker only)
 """
 import json
-from typing import Dict, Any, cast, TextIO, TypeVar, Iterable, Callable, Optional
+from typing import Dict, Any, cast, TextIO, TypeVar, Iterable, Callable, List, Type
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -147,26 +148,32 @@ class DockerDaemonJson(Fmt):
 
 def _raise_if_all_fail(l, f, what):
     # type: (Iterable[T], Callable[[T], U], str) -> U
-    e = None  # type: Optional[Exception]
+    es = []  # type: List[Exception]
     for el in l:
         try:
             return f(el)
         except Exception as ex:
-            e = ex
-    raise ValueError('{what}: {e}'.format(what=what,e=e))
+            es.append(ex)
+    details = '\n'.join('* {e}'.format(e=e) for e in es)
+    raise ValueError('{what}:\n{details}'.format(what=what,details=details))
 
 
 def execute_for_file(fname, arguments):
     # type: (str, dict) -> None
+    if arguments['--docker']:
+        conf_type = DockerDaemonJson  # type: Type[Fmt]
+    else:
+        conf_type = {
+            '/etc/docker/daemon.json': DockerDaemonJson
+        }.get(fname, RegistriesConfV2)
+
     if arguments['add-mirror']:
         with open(fname) as f:
             def fun(cls):
                 # type: (Any) -> Any
                 f.seek(0)
                 return cls(f)
-            fmt = _raise_if_all_fail([DockerDaemonJson, RegistriesConfV2],
-                                     fun,
-                                     "Failed to read {fname}".format(fname=fname))
+            fmt = fun(conf_type)
 
         fmt.add_mirror(arguments['<registry>'], arguments['<mirror>'],
                        arguments['--insecure'], arguments['--http'])
@@ -186,11 +193,15 @@ def execute_for_file(fname, arguments):
         print('\n'.join(fmt.list_mirrors(arguments['<registry>'])))
 
 
+def run_all(arguments):
+    # type: (dict) -> None
+    _raise_if_all_fail(arguments['--conf'].split(','),
+                       lambda fname: execute_for_file(fname, arguments),
+                       'Failed to read configuration')
+
+
 def main():
     # type: () -> None
     arguments = docopt.docopt(__doc__, version='1.0')
-
-    _raise_if_all_fail(arguments['--conf'].split(','),
-                       lambda fname: execute_for_file(fname, arguments),
-                       'Failed to read any file')
+    run_all(arguments)
 

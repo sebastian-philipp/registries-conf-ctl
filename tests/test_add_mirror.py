@@ -95,21 +95,22 @@ def test_add_mirror(test_input, expected, cls, tmpdir):
     fmt.add_mirror('docker.io', 'vossi04.front.sepia.ceph.com:5000', True, True)
     assert fmt.config == expected
 
+    d = '--docker' if cls is cli.DockerDaemonJson else ''
 
     p = tmpdir.join("conf.conf")
     p.write(test_input)
 
-    assert subprocess.check_output('registries-conf-ctl --conf {p} list-mirrors docker.io'.format(p=p), shell=True) == b'\n'
+    assert subprocess.check_output('registries-conf-ctl --conf {p} {d} list-mirrors docker.io'.format(p=p,d=d), shell=True) == b'\n'
 
-    subprocess.check_call('registries-conf-ctl --conf {p} add-mirror docker.io vossi04.front.sepia.ceph.com:5000 --insecure --http'.format(p=p), shell=True)
-
-    assert cls(p).config == expected
-
-    subprocess.check_call('registries-conf-ctl --conf {p} add-mirror docker.io vossi04.front.sepia.ceph.com:5000 --insecure --http'.format(p=p), shell=True)
+    subprocess.check_call('registries-conf-ctl --conf {p} {d} add-mirror docker.io vossi04.front.sepia.ceph.com:5000 --insecure --http'.format(p=p,d=d), shell=True)
 
     assert cls(p).config == expected
 
-    assert subprocess.check_output('registries-conf-ctl --conf {p} list-mirrors docker.io'.format(p=p), shell=True) == b'vossi04.front.sepia.ceph.com:5000\n'
+    subprocess.check_call('registries-conf-ctl --conf {p} {d} add-mirror docker.io vossi04.front.sepia.ceph.com:5000 --insecure --http'.format(p=p,d=d), shell=True)
+
+    assert cls(p).config == expected
+
+    assert subprocess.check_output('registries-conf-ctl --conf {p} {d} list-mirrors docker.io'.format(p=p,d=d), shell=True) == b'vossi04.front.sepia.ceph.com:5000\n'
 
 
 def test_small_registries_conf():
