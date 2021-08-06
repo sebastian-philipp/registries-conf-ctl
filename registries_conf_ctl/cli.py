@@ -20,9 +20,10 @@ Options:
 from __future__ import print_function
 
 import sys
+from collections import namedtuple
 
 import json
-from typing import Dict, Any, cast, TextIO, TypeVar, Iterable, Callable, List, Type, NamedTuple
+from typing import Dict, Any, cast, TextIO, TypeVar, Iterable, Callable, List, Type
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -32,15 +33,24 @@ import toml
 import docopt
 
 
-def default_factory(**factory_kw: Callable) -> Callable[[K], K]:
+def default_factory(**factory_kw):
+    # type: (Callable) -> Callable[[K], K]
     # https://stackoverflow.com/a/68682382/3185053
-    def wrapper(cls: K) -> K:
+    def wrapper(cls):
+        # type: (K) -> K
         def init(*args, **kwargs):
             # type: (Any, Any) -> Any
             for key, factory in factory_kw.items():
                 if key not in kwargs:
                     kwargs[key] = factory()
             return cls(*args, **kwargs)
+
+        classmethods = [attr for attr, obj in vars(cls).items() if isinstance(obj, classmethod)]
+        for clsm in classmethods:
+            def cls_m_wrapper(*args, **kwargs):
+                # type: (Any, Any) -> Any
+                return getattr(cls, clsm)(*args, **kwargs)
+            setattr(init, clsm, cls_m_wrapper)
         return cast(K, init)
     return wrapper
 
@@ -49,15 +59,14 @@ class CLIError(Exception):
     pass
 
 
-class Mirror(NamedTuple):
-    location: str
-    insecure: bool = False
-    http: bool = False
+@default_factory(insecure=lambda : False, http=lambda: False)
+class Mirror(namedtuple('Mirror', 'location insecure http')):
 
-    def to_json_v2(self) -> dict:
-        r: dict = {
+    def to_json_v2(self):
+        # type: () -> dict
+        r = {
             'location': self.location,
-        }
+        } # type: dict
         if self.insecure:
             r['insecure'] = self.insecure
         return r
@@ -67,8 +76,8 @@ class Mirror(NamedTuple):
         # type: (str) -> Mirror
         location = mirror.lstrip('http://').lstrip('https://')
         if mirror.startswith('http://'):
-            return cls(location=location, http=True)
-        return cls(location=location)
+            return cls(location=location, insecure=False, http=True)
+        return cls(location=location, insecure=False, http=False)
 
     def to_docker(self):
         # type: () -> str
@@ -76,20 +85,15 @@ class Mirror(NamedTuple):
         return '{proto}://{mirror}'.format(proto=proto, mirror=self.location)
 
 
-@default_factory(mirror=dict)
-class Reg(NamedTuple):
-    prefix: str
-    location: str
-    insecure: bool = False
-    blocked: bool = False
-    mirror: Dict[str, Mirror] = {}
-    unqualified_search: bool = False
+@default_factory(insecure=lambda: False, blocked=lambda: False, mirror=dict, unqualified_search=lambda: False)
+class Reg(namedtuple('Reg', 'prefix location insecure blocked mirror unqualified_search')):
 
-    def to_json_v2(self) -> dict:
-        r: dict = {
+    def to_json_v2(self):
+        # type: () -> dict
+        r = {
             'prefix': self.prefix,
             'location': self.location,
-        }
+        }  # type: dict
         if self.insecure:
             r['insecure'] = self.insecure
         if self.blocked:
@@ -111,7 +115,7 @@ class Reg(NamedTuple):
         return False
 
 
-class Fmt:
+class Fmt(object):
     def __init__(self, config):
         # type: (Dict[str, Reg]) -> None
         self.config = config
@@ -123,13 +127,13 @@ class Fmt:
             raise CLIError("Only mirrors for 'docker.io' are supported")
 
         if reg not in self.config:
-            self.config[reg] = Reg(
+            self.config[reg] = Reg(  # type: ignore
                 prefix=reg,
                 location=reg,
             )
 
         if mirror not in self.config[reg].mirror:
-            self.config[reg].mirror[mirror] = Mirror(mirror)
+            self.config[reg].mirror[mirror] = Mirror(mirror)  # type: ignore
 
         self.config[reg].mirror[mirror] = self.config[reg].mirror[mirror]._replace(insecure=insecure)
         self.config[reg].mirror[mirror] = self.config[reg].mirror[mirror]._replace(http=http)
@@ -145,7 +149,7 @@ class Fmt:
         # type: (str, str, bool, bool) -> None
         location = location or reg
         if reg not in self.config:
-            self.config[reg] = Reg(reg, location)
+            self.config[reg] = Reg(reg, location)  # type: ignore
 
         self.config[reg] = self.config[reg]._replace(insecure=insecure)
         self.config[reg] = self.config[reg]._replace(location=location)
@@ -189,7 +193,7 @@ class RegistriesConfV2(Fmt):
             }
             for s in search:
                 if s not in ret:
-                    ret[s] = Reg(
+                    ret[s] = Reg(  # type: ignore
                         prefix=s,
                         location=s,
                         unqualified_search=True
@@ -235,10 +239,10 @@ class DockerDaemonJson(Fmt):
                 prefix=r,
                 location=r,
                 insecure=True,
-            ) for r in self.docker_config.get('insecure-registries', [])
+            ) for r in self.docker_config.get('insecure-registries', [])  # type: ignore
         }
         if 'docker.io' not in regs:
-            regs['docker.io'] = Reg('docker.io', 'docker.io')
+            regs['docker.io'] = Reg('docker.io', 'docker.io')  # type: ignore
 
         regs['docker.io'] = regs['docker.io']._replace(mirror={m: Mirror.from_docker(m) for m in self.docker_config.get('registry-mirrors', [])})
         super(DockerDaemonJson, self).__init__(regs)
