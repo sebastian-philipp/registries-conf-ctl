@@ -46,6 +46,9 @@ insecure = false
 blocked = false
 """
 
+v2_empty = u"""
+"""
+
 reg_expected = {
     'unqualified-search-registries': ['docker.io', 'quay.io', 'registry.access.redhat.com', 'registry.redhat.io'],
     'registry': [
@@ -117,10 +120,14 @@ def test_unqualified_search_registries():
     (v1, reg_expected, cli.RegistriesConfV2),
     (v2, reg_expected, cli.RegistriesConfV2),
     (v1_empty, reg_expected, cli.RegistriesConfV2),
+    (v2_empty, reg_expected, cli.RegistriesConfV2),
     (docker_in, docker_out, cli.DockerDaemonJson),
 ])
 def test_add_registry(test_input, expected, cls, tmpdir):
-    fmt = cls(StringIO(test_input))
+    if cls == cli.RegistriesConfV2 and test_input == v2_empty:
+        fmt = cls(StringIO(test_input), allow_empty_config=True)
+    else:
+        fmt = cls(StringIO(test_input))
     fmt.add_registry('registry.access.redhat.com', '', False, True)
     fmt.add_registry('registry.redhat.io', '', False, True)
     fmt.add_registry('docker.io', '', False, True)
