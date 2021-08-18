@@ -235,7 +235,7 @@ class DockerDaemonJson(Fmt):
         self.docker_config = json.load(f)  # type: Dict[str, Any]
 
         regs = {
-            r: Reg(
+            r: Reg(  # type: ignore
                 prefix=r,
                 location=r,
                 insecure=True,
