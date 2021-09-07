@@ -166,50 +166,55 @@ class Fmt(object):
 
 class RegistriesConfV2(Fmt):
 
-    def __init__(self, f):
-        # type: (TextIO) -> None
+    def __init__(self, f, allow_empty_config=False):
+        # type: (TextIO, bool) -> None
         config = cast(Dict, toml.load(f))
-        if not config:
-            raise CLIError('Failed to load {f}: empty file'.format(f=f.name))
+        self.allow_empty_config = allow_empty_config
+        if not self.allow_empty_config:
+            if not config:
+                raise CLIError('Failed to load {f}: empty file'.format(f=f.name))
 
-        if 'registries' not in config and \
-                'registry' not in config and \
-                'unqualified-search-registries' not in config:
-            raise CLIError('Failed to load {f}: unknown file'.format(f=f.name))
+            if 'registries' not in config and \
+                    'registry' not in config and \
+                    'unqualified-search-registries' not in config:
+                raise CLIError('Failed to load {f}: unknown file'.format(f=f.name))
         super(RegistriesConfV2, self).__init__(self.v1_to_v2(config))
 
     def v1_to_v2(self, config):
         # type: (dict) -> Dict[str, Reg]
-        if 'registries' not in config:  # is_v2:
-            search = config['unqualified-search-registries']
-            ret = {
-                reg['prefix']: Reg(prefix=reg['prefix'],
-                    location=reg.get('location', reg['prefix']),
-                    insecure=reg.get('insecure', False),
-                    blocked=reg.get('blocked', False),
-                    mirror={m['location']: Mirror(**m) for m in reg.get('mirror', [])},
-                    unqualified_search=reg in search)
-                for reg in config.get('registry', [])
-            }
-            for s in search:
-                if s not in ret:
-                    ret[s] = Reg(  # type: ignore
-                        prefix=s,
-                        location=s,
-                        unqualified_search=True
-                    )
-                else:
-                    ret[s] = ret[s]._replace(unqualified_search=True)
-            return ret
-        # v1
-        search = config.get('registries', {}).get('search', {}).get('registries', [])
-        insecure = config.get('registries', {}).get('insecure', {}).get('registries', [])
-        return {reg: Reg(prefix=reg,
-                         location=reg,
-                         insecure=reg in insecure,
-                         blocked=False,
-                         mirror={},
-                         unqualified_search=reg in search) for reg in set(search + insecure)}
+        if config:
+            if 'registries' not in config:  # is_v2:
+                search = config['unqualified-search-registries']
+                ret = {
+                    reg['prefix']: Reg(prefix=reg['prefix'],
+                        location=reg.get('location', reg['prefix']),
+                        insecure=reg.get('insecure', False),
+                        blocked=reg.get('blocked', False),
+                        mirror={m['location']: Mirror(**m) for m in reg.get('mirror', [])},
+                        unqualified_search=reg in search)
+                    for reg in config.get('registry', [])
+                }
+                for s in search:
+                    if s not in ret:
+                        ret[s] = Reg(  # type: ignore
+                            prefix=s,
+                            location=s,
+                            unqualified_search=True
+                        )
+                    else:
+                        ret[s] = ret[s]._replace(unqualified_search=True)
+                return ret
+            # v1
+            search = config.get('registries', {}).get('search', {}).get('registries', [])
+            insecure = config.get('registries', {}).get('insecure', {}).get('registries', [])
+            return {reg: Reg(prefix=reg,
+                             location=reg,
+                             insecure=reg in insecure,
+                             blocked=False,
+                             mirror={},
+                             unqualified_search=reg in search) for reg in set(search + insecure)}
+        else:
+            return {}
 
     def dump_json(self):
         # type: () -> dict
@@ -309,7 +314,7 @@ def execute_for_file(fname, arguments):
             def fun(cls):
                 # type: (Any) -> Any
                 f.seek(0)
-                return cls(f)
+                return cls(f, allow_empty_config=True)
 
             fmt = fun(conf_type)
         fmt.add_registry(arguments['<registry>'], arguments['--location'],
