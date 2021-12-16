@@ -184,7 +184,7 @@ class RegistriesConfV2(Fmt):
         # type: (dict) -> Dict[str, Reg]
         if config:
             if 'registries' not in config:  # is_v2:
-                search = config['unqualified-search-registries']
+                search = config.get('unqualified-search-registries', [])
                 ret = {
                     reg['prefix']: Reg(prefix=reg['prefix'],
                         location=reg.get('location', reg['prefix']),
