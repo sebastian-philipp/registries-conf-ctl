@@ -9,13 +9,14 @@ registries-conf-ctl. A CLI tool to modify
 Usage:
   registries-conf-ctl [options] add-mirror <registry> <mirror> [--insecure] [--http]
   registries-conf-ctl [options] list-mirrors <registry>
+  registries-conf-ctl [options] add-registry <registry> [--location=location] [--insecure] [--unqualified-search]
   registries-conf-ctl -h | --help
   registries-conf-ctl --version
-
 Options:
   -h --help      Show this screen.
   --version      Show version.
   --conf=<conf>  registries.conf [default: /etc/containers/registries.conf,/etc/docker/daemon.json].
+  --docker       Treat `--conf` as a docker config file
   --insecure     Mark registry as insecure
   --http         HTTP registry mirror (Docker only)
 ```
