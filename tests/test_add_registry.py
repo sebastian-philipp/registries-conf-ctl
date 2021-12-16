@@ -49,6 +49,12 @@ blocked = false
 v2_empty = u"""
 """
 
+v2_small = u"""
+[[registry]]
+prefix = "quay.io"
+"""
+
+
 reg_expected = {
     'unqualified-search-registries': ['docker.io', 'quay.io', 'registry.access.redhat.com', 'registry.redhat.io'],
     'registry': [
@@ -76,9 +82,13 @@ docker_out = {
     "registry-mirrors": ["http://vossi04.front.sepia.ceph.com:5000"]
 }
 
-
-def test_add_registry_simple():
-    fmt = cli.RegistriesConfV2(StringIO(v1_empty))
+@pytest.mark.parametrize('input',
+[
+    v1_empty,
+    v2_small,
+])
+def test_add_registry_simple(input):
+    fmt = cli.RegistriesConfV2(StringIO(input))
     fmt.add_registry('localhost', '', True, False)
     assert fmt.dump_json() == {
         'registry': [
